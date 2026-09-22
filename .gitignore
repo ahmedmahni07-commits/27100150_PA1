@@ -2,6 +2,11 @@ data/
 .venv/
 __pycache__/
 *.pth
-*.pttask1/data/raw/
+*.pt
+task1/data/raw/
 task1/features/
-shared/pacs/images/
+common/pacs/images/
+pacs_dataset.zip
+wandb/
+checkpoints/
+.DS_Store
