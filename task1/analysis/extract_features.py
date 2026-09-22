@@ -6,7 +6,6 @@ from torchvision import models
 import open_clip
 from tqdm import tqdm
 
-# Add the root directory to the path to import common.seed
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../')))
 from common.seed import set_seed
 from task1.dataset import STL10Subset
@@ -21,6 +20,8 @@ def extract_and_save_features(model, dataloader, device, save_path, is_openclip=
             
             if is_openclip:
                 out = model.encode_image(imgs)
+                # Ensure the CLIP image embedding is normalized as explicitly requested
+                out = out / out.norm(dim=-1, keepdim=True)
             else:
                 out = model(imgs)
                 
@@ -33,39 +34,33 @@ def extract_and_save_features(model, dataloader, device, save_path, is_openclip=
     torch.save({'features': features, 'labels': labels}, save_path)
 
 def main():
-    # 1. Lock the seed
     set_seed(6304)
-    
-    # 2. Use Apple Silicon GPU (MPS) if available, otherwise CPU
     device = torch.device('mps' if torch.backends.mps.is_available() else 'cpu')
-    print(f"Using device: {device}")
-
-    # 3. Create directory for saving features
+    
     save_dir = os.path.join(os.path.dirname(__file__), 'features')
     os.makedirs(save_dir, exist_ok=True)
 
-    # 4. Initialize ResNet-50
+    # 1. ResNet-50 with IMAGENET1K_V2 (Updated)
     print("\nLoading ResNet-50...")
-    resnet_weights = models.ResNet50_Weights.IMAGENET1K_V1
+    resnet_weights = models.ResNet50_Weights.IMAGENET1K_V2
     resnet = models.resnet50(weights=resnet_weights)
-    resnet.fc = torch.nn.Identity() # Remove classification head
+    resnet.fc = torch.nn.Identity() # Leaves the global-average-pooled feature (B, 2048)
     resnet = resnet.to(device)
     resnet_transform = resnet_weights.transforms()
 
-    # 5. Initialize ViT-B/16
+    # 2. ViT-B/16 with IMAGENET1K_V1
     print("Loading ViT-B/16...")
     vit_weights = models.ViT_B_16_Weights.IMAGENET1K_V1
     vit = models.vit_b_16(weights=vit_weights)
-    vit.heads = torch.nn.Identity() # Remove classification head
+    vit.heads = torch.nn.Identity() # Leaves the final class token (B, 768)
     vit = vit.to(device)
     vit_transform = vit_weights.transforms()
 
-    # 6. Initialize OpenCLIP (ViT-B-32)
+    # 3. OpenCLIP with 'openai' weights (Updated)
     print("Loading OpenCLIP...")
-    clip_model, _, clip_transform = open_clip.create_model_and_transforms('ViT-B-32', pretrained='laion2b_s34b_b79k')
+    clip_model, _, clip_transform = open_clip.create_model_and_transforms('ViT-B-32', pretrained='openai')
     clip_model = clip_model.to(device)
 
-    # 7. Map models to their specific image transforms
     models_dict = {
         'resnet50': (resnet, resnet_transform, False),
         'vit_b_16': (vit, vit_transform, False),
@@ -74,23 +69,13 @@ def main():
 
     splits = ['train', 'val', 'test']
     
-    # 8. Loop through each model and split to extract features
     for model_name, (model, transform, is_clip) in models_dict.items():
         print(f"\n--- Processing {model_name} ---")
-        
         for split in splits:
             save_path = os.path.join(save_dir, f"{model_name}_{split}.pt")
-            
-            if os.path.exists(save_path):
-                print(f"Skipping {split}, already exists at {save_path}")
-                continue
-                
             dataset = STL10Subset(split, transform=transform)
             dataloader = DataLoader(dataset, batch_size=64, shuffle=False)
-            
             extract_and_save_features(model, dataloader, device, save_path, is_openclip=is_clip)
-            
-    print("\nAll features extracted and saved successfully!")
 
 if __name__ == "__main__":
     main()
