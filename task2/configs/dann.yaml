@@ -1,0 +1,5 @@
+# DANN configuration
+defaults:
+  - base
+method: "dann"
+lambda_dom: 1.0

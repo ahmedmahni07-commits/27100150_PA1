@@ -1,0 +1,4 @@
+# Source-only ERM configuration
+defaults:
+  - base
+method: "source_only"

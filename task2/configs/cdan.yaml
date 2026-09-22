@@ -1,0 +1,5 @@
+# CDAN configuration
+defaults:
+  - base
+method: "cdan"
+lambda_dom: 1.0
