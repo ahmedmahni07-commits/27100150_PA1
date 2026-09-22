@@ -4,3 +4,4 @@ __pycache__/
 *.pth
 *.pttask1/data/raw/
 task1/features/
+shared/pacs/images/
