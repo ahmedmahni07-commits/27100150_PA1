@@ -4,9 +4,9 @@ import torch
 from torchvision import transforms
 from PIL import Image
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../')))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 from common.seed import set_seed
-from task1.dataset import STL10Subset
+from task1.data.dataset import STL10Subset
 
 def main():
     set_seed(6304)
@@ -22,7 +22,7 @@ def main():
     ]
     
     # Create directories for the raw pairs
-    base_out = os.path.join(os.path.dirname(__file__), 'data', 'cue_conflicts_raw')
+    base_out = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'data', 'cue_conflicts_raw')
     os.makedirs(base_out, exist_ok=True)
     
     # Extract images by class

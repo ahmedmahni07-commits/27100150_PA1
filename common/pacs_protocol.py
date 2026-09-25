@@ -1,139 +1,320 @@
 """
-Shared PACS dataset protocol for Tasks 2 and 3.
+The single shared PACS protocol used by Task 2 and Task 3:
+  - seed 6304 everywhere
+  - stratified 80/20 train/val split per source domain
+  - domain-balanced batch construction (8 per source domain per step, 24 target)
+  - the frozen Sketch split cache so Task 2 and Task 3 use identical data
 
-Defines the domain/class vocabulary, reads the official PACS split files,
-and builds the deterministic stratified 80/20 source train/val split
-(seed 6304) that both tasks must reuse unchanged (per the assignment:
-"Reuse the same source splits across both tasks").
-
-Design notes (why it's built this way):
-- PACS *_train_kfold.txt is the "official training partition" for a domain.
-  For the three SOURCE domains (Photo, Art Painting, Cartoon) we take this
-  file as the pool and carve our OWN stratified 80/20 train/val split out of
-  it with seed 6304 -- the assignment is explicit that split is ours to make,
-  not the official crossval/test files.
-- For the TARGET domain (Sketch), the assignment says "the complete target
-  domain serves as the unlabeled adaptation set" -- so we use every Sketch
-  image (train+crossval+test combined), since Sketch is never split into
-  train/val the way source domains are.
-- The chosen source split is cached to disk (pacs_source_splits_seed6304.json)
-  the first time it's computed, so Task 2 and Task 3 -- which import this
-  same module -- are guaranteed to reuse the identical split rather than
-  each independently reconstructing one that happens to match.
+Task-specific losses (DAN/DANN/CDAN in Task 2, DAN-DG/SAM in Task 3) must
+NOT live here — only the data/splitting/loader machinery identical across
+both tasks.
 """
+
+from __future__ import annotations
+
 import json
-import os
-from collections import defaultdict
+import random
+from dataclasses import dataclass, asdict
+from pathlib import Path
 
 import numpy as np
+import torch
+from PIL import Image
+from sklearn.model_selection import train_test_split
+from torch.utils.data import DataLoader
 
-# PACS kfold split files use 1-indexed labels in alphabetical class order,
-# e.g. "art_painting/dog/pic_333.jpg 1" -> dog. We convert to 0-indexed here
-# so every downstream consumer (loss functions, sklearn, etc.) gets plain
-# 0..6 class ids and never has to remember the off-by-one.
-CLASSES = ["dog", "elephant", "giraffe", "guitar", "horse", "house", "person"]
-CLASS_TO_IDX = {c: i for i, c in enumerate(CLASSES)}
-NUM_CLASSES = len(CLASSES)
-
-DOMAINS = ["photo", "art_painting", "cartoon", "sketch"]
-SOURCE_DOMAINS = ["photo", "art_painting", "cartoon"]
-TARGET_DOMAIN = "sketch"
-SOURCE_DOMAIN_TO_IDX = {d: i for i, d in enumerate(SOURCE_DOMAINS)}
-
-_THIS_DIR = os.path.dirname(os.path.abspath(__file__))
-IMAGES_ROOT = os.path.join(_THIS_DIR, "pacs", "images")
-SPLITS_ROOT = os.path.join(_THIS_DIR, "pacs", "splits")
+from common.pacs import PACSSample, PACSDataset, SOURCE_DOMAINS, TARGET_DOMAIN, list_domain_images
 
 SEED = 6304
 VAL_FRACTION = 0.2
-
-_CACHE_PATH = os.path.join(_THIS_DIR, f"pacs_source_splits_seed{SEED}.json")
-
-
-def _read_kfold_file(path):
-    """Read one PACS *_kfold.txt file -> list of (relpath, 0-indexed label)."""
-    samples = []
-    with open(path, "r") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            relpath, label_1indexed = line.rsplit(" ", 1)
-            samples.append((relpath, int(label_1indexed) - 1))
-    return samples
+SOURCE_EXAMPLES_PER_DOMAIN_PER_BATCH = 8   # -> 24 source examples/batch
+TARGET_EXAMPLES_PER_BATCH = 24             # equal total source/target
 
 
-def official_train_pool(domain):
-    """The 'official training partition' for a domain (used for source domains)."""
-    path = os.path.join(SPLITS_ROOT, f"{domain}_train_kfold.txt")
-    return _read_kfold_file(path)
+def set_all_seeds(seed: int = SEED) -> None:
+    """Seed python/numpy/torch (CPU+CUDA) for reproducibility."""
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
 
 
-def full_domain_pool(domain):
-    """Every official image for a domain (train+crossval+test, deduplicated).
-    Used to build the complete, unlabeled target (Sketch) pool."""
-    seen = {}
-    for split_name in ("train_kfold", "crossval_kfold", "test_kfold"):
-        path = os.path.join(SPLITS_ROOT, f"{domain}_{split_name}.txt")
-        for relpath, label in _read_kfold_file(path):
-            seen[relpath] = label
-    return sorted(seen.items())
+@dataclass
+class DomainSplit:
+    domain: str
+    train_paths: list[str]
+    train_labels: list[int]
+    val_paths: list[str]
+    val_labels: list[int]
 
 
-def _stratified_split(samples, val_fraction, seed):
-    """Deterministic per-class stratified split into (train, val)."""
-    by_class = defaultdict(list)
-    for relpath, label in samples:
-        by_class[label].append(relpath)
-
-    train, val = [], []
-    for label in sorted(by_class):
-        paths = sorted(by_class[label])       # sort before shuffling: deterministic input order
-        rng = np.random.RandomState(seed)     # fresh RNG per class: split is independent of
-        rng.shuffle(paths)                    # domain/class iteration order
-        n_val = max(1, round(len(paths) * val_fraction))
-        val.extend((p, label) for p in paths[:n_val])
-        train.extend((p, label) for p in paths[n_val:])
-    return sorted(train), sorted(val)
+def make_stratified_split(
+    samples: list[PACSSample], seed: int = SEED, val_fraction: float = VAL_FRACTION
+) -> tuple[list[PACSSample], list[PACSSample]]:
+    """Stratified 80/20 split by class label, seeded with `seed`."""
+    labels = [s.label for s in samples]
+    indices = list(range(len(samples)))
+    train_idx, val_idx = train_test_split(
+        indices, test_size=val_fraction, stratify=labels, random_state=seed,
+    )
+    train_samples = [samples[i] for i in train_idx]
+    val_samples = [samples[i] for i in val_idx]
+    return train_samples, val_samples
 
 
-def build_source_splits(force_recompute=False):
-    """Return {domain: {'train': [(relpath,label),...], 'val': [...]}} for the
-    three PACS source domains. Cached to disk after first computation."""
-    if os.path.exists(_CACHE_PATH) and not force_recompute:
-        with open(_CACHE_PATH, "r") as f:
+def build_or_load_source_splits(
+    pacs_root: str | Path,
+    cache_path: str | Path = "common/splits/pacs_source_splits_seed6304.json",
+) -> dict[str, DomainSplit]:
+    """
+    For each domain in SOURCE_DOMAINS, build (or load from cache) the
+    stratified 80/20 split. Identical whether called from Task 2 or Task 3.
+    """
+    cache_path = Path(cache_path)
+    if cache_path.exists():
+        with open(cache_path) as f:
             raw = json.load(f)
         return {
-            domain: {
-                "train": [tuple(x) for x in split["train"]],
-                "val": [tuple(x) for x in split["val"]],
-            }
-            for domain, split in raw.items()
+            domain: DomainSplit(**entry)  # entry already carries its own "domain" key
+            for domain, entry in raw.items()
         }
 
-    splits = {}
+    set_all_seeds(SEED)
+    splits: dict[str, DomainSplit] = {}
     for domain in SOURCE_DOMAINS:
-        pool = official_train_pool(domain)
-        train, val = _stratified_split(pool, VAL_FRACTION, SEED)
-        splits[domain] = {"train": train, "val": val}
+        samples = list_domain_images(pacs_root, domain)
+        train_samples, val_samples = make_stratified_split(samples, seed=SEED, val_fraction=VAL_FRACTION)
+        splits[domain] = DomainSplit(
+            domain=domain,
+            train_paths=[s.path for s in train_samples],
+            train_labels=[s.label for s in train_samples],
+            val_paths=[s.path for s in val_samples],
+            val_labels=[s.label for s in val_samples],
+        )
 
-    with open(_CACHE_PATH, "w") as f:
-        json.dump(splits, f, indent=2)
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(cache_path, "w") as f:
+        json.dump({d: asdict(s) for d, s in splits.items()}, f, indent=2)
+
     return splits
 
 
-def target_pool():
-    """The complete, unlabeled-during-training Sketch domain."""
-    return full_domain_pool(TARGET_DOMAIN)
+def build_or_load_target_pool(
+    pacs_root: str | Path,
+    cache_path: str | Path = "common/splits/pacs_sketch_seed6304.json",
+) -> list[PACSSample]:
+    """
+    Load the complete Sketch domain as the unlabeled adaptation pool
+    (Task 2) / eval-only pool (Task 3), caching the selected image
+    identifiers so both tasks and reruns see the exact same set.
+    """
+    cache_path = Path(cache_path)
+    if cache_path.exists():
+        with open(cache_path) as f:
+            raw = json.load(f)
+        return [
+            PACSSample(path=p, label=l, domain=TARGET_DOMAIN)
+            for p, l in zip(raw["paths"], raw["labels"])
+        ]
+
+    samples = sorted(list_domain_images(pacs_root, TARGET_DOMAIN), key=lambda s: s.path)
+
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(cache_path, "w") as f:
+        json.dump(
+            {"paths": [s.path for s in samples], "labels": [s.label for s in samples]},
+            f, indent=2,
+        )
+
+    return samples
 
 
-if __name__ == "__main__":
-    splits = build_source_splits()
-    total_train = total_val = 0
-    for domain, split in splits.items():
-        n_tr, n_val = len(split["train"]), len(split["val"])
-        total_train += n_tr
-        total_val += n_val
-        print(f"{domain:>14}: train={n_tr:5d}  val={n_val:5d}")
-    print(f"{'TOTAL source':>14}: train={total_train:5d}  val={total_val:5d}")
-    print(f"{'sketch (target)':>14}: {len(target_pool())} images (unlabeled during training)")
+class _CyclicIndexSampler:
+    """
+    Yields indices from range(n) in shuffled order, reshuffling (with a
+    fresh seeded permutation) whenever exhausted, so callers can request
+    an arbitrary number of indices without ever running out — this is what
+    lets a shorter domain/pool "cycle" while a longer one is still being
+    consumed within the same epoch.
+    """
+
+    def __init__(self, n: int, seed: int):
+        self._n = n
+        self._rng = np.random.RandomState(seed)
+        self._order = self._rng.permutation(self._n)
+        self._pos = 0
+
+    def next(self, k: int) -> np.ndarray:
+        out: list[int] = []
+        while len(out) < k:
+            remaining = self._n - self._pos
+            take = min(k - len(out), remaining)
+            out.extend(self._order[self._pos: self._pos + take].tolist())
+            self._pos += take
+            if self._pos >= self._n:
+                self._order = self._rng.permutation(self._n)
+                self._pos = 0
+        return np.array(out)
+
+
+def steps_per_epoch(
+    source_splits: dict[str, DomainSplit],
+    target_samples: list[PACSSample],
+    source_per_domain: int = SOURCE_EXAMPLES_PER_DOMAIN_PER_BATCH,
+    target_per_batch: int = TARGET_EXAMPLES_PER_BATCH,
+) -> int:
+    """
+    One epoch = enough steps for every relevant pool (each source domain's
+    train split, and the target pool) to be fully consumed at least once.
+    Shorter pools cycle (reshuffling) to fill out the remaining steps.
+    """
+    src_steps = [
+        -(-len(split.train_paths) // source_per_domain)  # ceil division
+        for split in source_splits.values()
+    ]
+    tgt_steps = -(-len(target_samples) // target_per_batch)
+    return max(*src_steps, tgt_steps)
+
+
+def domain_balanced_batches(
+    source_splits: dict[str, DomainSplit],
+    target_samples: list[PACSSample],
+    train_transform,
+    source_per_domain: int = SOURCE_EXAMPLES_PER_DOMAIN_PER_BATCH,
+    target_per_batch: int = TARGET_EXAMPLES_PER_BATCH,
+    seed: int = SEED,
+    epoch: int = 0,
+):
+    """
+    Generator over one epoch's worth of batches, each with the fixed
+    composition: `source_per_domain` examples from EVERY source domain
+    (e.g. 8+8+8=24) plus `target_per_batch` target examples (24) — 48 total.
+
+    Call once per training epoch with an incremented `epoch` so the
+    per-domain shuffle order changes across epochs while staying fully
+    determined by (seed, epoch) for reproducibility.
+
+    Image decoding here is synchronous (no DataLoader workers) so the exact
+    batch composition is trivial to reason about and debug; wrap this in a
+    background thread/process later if throughput becomes a bottleneck.
+    """
+    domain_names = list(source_splits.keys())
+    epoch_seed = seed + epoch
+
+    samplers = {
+        domain: _CyclicIndexSampler(len(split.train_paths), seed=epoch_seed + i)
+        for i, (domain, split) in enumerate(source_splits.items())
+    }
+    target_sampler = _CyclicIndexSampler(len(target_samples), seed=epoch_seed + len(domain_names))
+
+    n_steps = steps_per_epoch(source_splits, target_samples, source_per_domain, target_per_batch)
+
+    for _ in range(n_steps):
+        source_images, source_labels, source_domain_ids = [], [], []
+        for domain_id, domain in enumerate(domain_names):
+            split = source_splits[domain]
+            idxs = samplers[domain].next(source_per_domain)
+            for idx in idxs:
+                img = Image.open(split.train_paths[idx]).convert("RGB")
+                source_images.append(train_transform(img))
+                source_labels.append(split.train_labels[idx])
+                source_domain_ids.append(domain_id)
+
+        target_images = []
+        idxs = target_sampler.next(target_per_batch)
+        for idx in idxs:
+            img = Image.open(target_samples[idx].path).convert("RGB")
+            target_images.append(train_transform(img))
+
+        yield {
+            "source_images": torch.stack(source_images),
+            "source_labels": torch.tensor(source_labels, dtype=torch.long),
+            "source_domain_ids": torch.tensor(source_domain_ids, dtype=torch.long),
+            "target_images": torch.stack(target_images),
+            "domain_names": domain_names,  # index -> name, for logging/debugging
+        }
+
+
+def steps_per_epoch_source_only(
+    source_splits: dict[str, DomainSplit],
+    source_per_domain: int = SOURCE_EXAMPLES_PER_DOMAIN_PER_BATCH,
+) -> int:
+    """
+    Task 3 (Domain Generalization) analogue of steps_per_epoch: no target
+    pool exists to fold into the max(), since Sketch is never loaded during
+    Task 3 training. One epoch = enough steps for every source domain's
+    train split to be fully consumed at least once (shorter domains cycle).
+    """
+    src_steps = [
+        -(-len(split.train_paths) // source_per_domain)  # ceil division
+        for split in source_splits.values()
+    ]
+    return max(src_steps)
+
+
+def source_balanced_batches(
+    source_splits: dict[str, DomainSplit],
+    train_transform,
+    source_per_domain: int = SOURCE_EXAMPLES_PER_DOMAIN_PER_BATCH,
+    seed: int = SEED,
+    epoch: int = 0,
+):
+    """
+    Task 3 (Domain Generalization) batch generator: domain-balanced across
+    the three SOURCE domains only (e.g. 8+8+8=24/step). This is the ONLY
+    batching function task3/train.py is allowed to use -- unlike
+    domain_balanced_batches above (Task 2/UDA), it never touches
+    build_or_load_target_pool or any Sketch path, so the unseen-target
+    protocol can't accidentally leak through the training loop.
+
+    Same (seed, epoch)-determined per-domain cyclic shuffling as
+    domain_balanced_batches, so it's reproducible the same way.
+    """
+    domain_names = list(source_splits.keys())
+    epoch_seed = seed + epoch
+
+    samplers = {
+        domain: _CyclicIndexSampler(len(split.train_paths), seed=epoch_seed + i)
+        for i, (domain, split) in enumerate(source_splits.items())
+    }
+
+    n_steps = steps_per_epoch_source_only(source_splits, source_per_domain)
+
+    for _ in range(n_steps):
+        source_images, source_labels, source_domain_ids = [], [], []
+        for domain_id, domain in enumerate(domain_names):
+            split = source_splits[domain]
+            idxs = samplers[domain].next(source_per_domain)
+            for idx in idxs:
+                img = Image.open(split.train_paths[idx]).convert("RGB")
+                source_images.append(train_transform(img))
+                source_labels.append(split.train_labels[idx])
+                source_domain_ids.append(domain_id)
+
+        yield {
+            "source_images": torch.stack(source_images),
+            "source_labels": torch.tensor(source_labels, dtype=torch.long),
+            "source_domain_ids": torch.tensor(source_domain_ids, dtype=torch.long),
+            "domain_names": domain_names,  # index -> name, for logging/debugging
+        }
+
+
+def make_source_eval_loader(split: DomainSplit, eval_transform, batch_size: int = 64) -> DataLoader:
+    """Non-shuffled loader over one source domain's val split, for checkpoint selection."""
+    samples = [
+        PACSSample(path=p, label=l, domain=split.domain)
+        for p, l in zip(split.val_paths, split.val_labels)
+    ]
+    dataset = PACSDataset(samples, eval_transform)
+    return DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=2)
+
+
+def make_target_eval_loader(
+    target_samples: list[PACSSample], eval_transform, batch_size: int = 64
+) -> DataLoader:
+    """
+    Non-shuffled loader over the full Sketch pool for final evaluation.
+    Only evaluate_final.py should read the labels this yields.
+    """
+    dataset = PACSDataset(target_samples, eval_transform)
+    return DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=2)

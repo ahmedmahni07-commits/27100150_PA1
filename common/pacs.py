@@ -1,120 +1,131 @@
 """
-PACS Dataset, transforms, and multi-domain batch construction shared by
-Tasks 2 and 3.
+PACS dataset loading utilities, shared by Task 2 (UDA) and Task 3 (DG).
 
-This module only depends on common/pacs_protocol.py for *which* images go
-where; it owns *how* those images are loaded and batched.
+PACS: 7 object classes across 4 domains (Photo, Art Painting, Cartoon, Sketch).
+Sketch is always the held-out/target domain for Tasks 2 and 3.
 """
-import os
 
-import torch
+from __future__ import annotations
+
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Callable, Optional
+
 from PIL import Image
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import Dataset
 from torchvision import transforms
+from torchvision.models import ResNet18_Weights
 
-from common.pacs_protocol import IMAGES_ROOT
+PACS_CLASSES = [
+    "dog", "elephant", "giraffe", "guitar", "horse", "house", "person",
+]
+PACS_DOMAINS = ["photo", "art_painting", "cartoon", "sketch"]
+SOURCE_DOMAINS = ["photo", "art_painting", "cartoon"]
+TARGET_DOMAIN = "sketch"
 
-# Standard ImageNet normalization -- required since every backbone (ResNet-18
-# here, ResNet-50/ViT/CLIP in Task 1) was pretrained on ImageNet-normalized inputs.
-IMAGENET_MEAN = [0.485, 0.456, 0.406]
-IMAGENET_STD = [0.229, 0.224, 0.225]
+CLASS_TO_IDX = {c: i for i, c in enumerate(PACS_CLASSES)}
+IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png"}
 
 
-def build_transform(split):
-    """split='train': Resize 256 -> RandomCrop 224 -> RandomHorizontalFlip
-                       (matches the assignment's augmentation spec exactly).
-       split='eval' : Resize 256 -> CenterCrop 224, no randomness -- used for
-                       both source validation and final target evaluation."""
+@dataclass
+class PACSSample:
+    path: str
+    label: int
+    domain: str
+
+
+def list_domain_images(root: str | Path, domain: str) -> list[PACSSample]:
+    """
+    Expects the standard PACS on-disk layout:
+        <root>/<domain>/<class_name>/*.jpg
+
+    with domain folder names exactly matching PACS_DOMAINS and class folder
+    names exactly matching PACS_CLASSES. If your copy of PACS uses different
+    folder names (e.g. "art_painting" vs "art painting"), fix that at the
+    filesystem level rather than here, so the cached split JSONs stay valid.
+    """
+    domain_dir = Path(root) / domain
+    if not domain_dir.is_dir():
+        raise FileNotFoundError(
+            f"PACS domain directory not found: {domain_dir}. "
+            f"Expected layout <root>/<domain>/<class_name>/*.jpg"
+        )
+
+    samples: list[PACSSample] = []
+    for class_name in PACS_CLASSES:
+        class_dir = domain_dir / class_name
+        if not class_dir.is_dir():
+            continue
+        label = CLASS_TO_IDX[class_name]
+        for img_path in sorted(class_dir.iterdir()):
+            if img_path.suffix.lower() in IMAGE_EXTENSIONS:
+                samples.append(PACSSample(path=str(img_path), label=label, domain=domain))
+
+    if not samples:
+        raise RuntimeError(
+            f"No images found under {domain_dir}. Check that class subfolder "
+            f"names match {PACS_CLASSES}."
+        )
+    return samples
+
+
+def get_backbone_transforms(
+    split: str,
+    resize: int = 256,
+    crop: int = 224,
+    normalize_mean: Optional[tuple[float, float, float]] = None,
+    normalize_std: Optional[tuple[float, float, float]] = None,
+) -> Callable:
+    """
+    train: resize 256x256 -> random 224x224 crop -> horizontal flip
+    val/eval/test: resize 256x256 -> center 224x224 crop
+
+    Normalization defaults to ResNet18_Weights.IMAGENET1K_V1's own mean/std
+    (pulled from the weights' transforms) unless explicitly overridden —
+    per spec: "Apply the normalization associated with the pretrained weights."
+    """
+    if normalize_mean is None or normalize_std is None:
+        weight_tf = ResNet18_Weights.IMAGENET1K_V1.transforms()
+        normalize_mean = weight_tf.mean
+        normalize_std = weight_tf.std
+
     if split == "train":
         return transforms.Compose([
-            transforms.Resize((256, 256)),
-            transforms.RandomCrop(224),
+            transforms.Resize((resize, resize)),
+            transforms.RandomCrop(crop),
             transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
-            transforms.Normalize(IMAGENET_MEAN, IMAGENET_STD),
+            transforms.Normalize(mean=normalize_mean, std=normalize_std),
         ])
-    if split == "eval":
+    if split in ("val", "eval", "test"):
         return transforms.Compose([
-            transforms.Resize((256, 256)),
-            transforms.CenterCrop(224),
+            transforms.Resize((resize, resize)),
+            transforms.CenterCrop(crop),
             transforms.ToTensor(),
-            transforms.Normalize(IMAGENET_MEAN, IMAGENET_STD),
+            transforms.Normalize(mean=normalize_mean, std=normalize_std),
         ])
-    raise ValueError(f"Unknown split: {split!r}")
+    raise ValueError(f"Unknown split: {split!r} (expected 'train' or 'val'/'eval'/'test')")
 
 
 class PACSDataset(Dataset):
-    """Wraps a list of (relpath, label) samples for one PACS domain.
+    """
+    A flat dataset over one or more PACS domains.
 
-    return_label=False is used for the target domain during adaptation: the
-    images are still loaded, but no label ever leaves this object, so a
-    downstream training loop cannot accidentally consume target labels.
+    Returns (image_tensor, label, domain_name). `label` is loaded for every
+    sample (including target/Sketch) because it exists on disk, but Task 2's
+    method training loops (dan.py/dann.py/cdan.py) must never read it for
+    target examples — only evaluate_final.py is allowed to.
     """
 
-    def __init__(self, samples, transform, return_label=True):
+    def __init__(self, samples: list[PACSSample], transform: Callable):
         self.samples = samples
         self.transform = transform
-        self.return_label = return_label
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.samples)
 
-    def __getitem__(self, idx):
-        relpath, label = self.samples[idx]
-        img = Image.open(os.path.join(IMAGES_ROOT, relpath)).convert("RGB")
-        img = self.transform(img)
-        if self.return_label:
-            return img, label
-        return img
-
-
-def make_loader(samples, split, batch_size, shuffle, return_label=True,
-                 num_workers=4, drop_last=False):
-    ds = PACSDataset(samples, build_transform(split), return_label=return_label)
-    return DataLoader(
-        ds, batch_size=batch_size, shuffle=shuffle,
-        num_workers=num_workers, drop_last=drop_last,
-        pin_memory=torch.cuda.is_available(),
-    )
-
-
-def _infinite(loader):
-    """Re-iterate a DataLoader forever without caching yielded batches in memory
-    (unlike itertools.cycle, which would hold every past image tensor).
-    Each pass reshuffles if the loader was built with shuffle=True."""
-    while True:
-        for batch in loader:
-            yield batch
-
-
-class MultiDomainBatchStream:
-    """One balanced mini-batch per step: a batch from each source-domain loader
-    (cycling shorter domains so every step is fully populated), optionally
-    paired with a batch from an unlabeled target loader.
-
-    Implements the assignment's "8 examples from each source domain and 24
-    target examples ... cycle a loader when necessary" requirement, and is
-    reused as-is by Task 3 with target_loader=None.
-    """
-
-    def __init__(self, source_loaders: dict, steps_per_epoch: int, target_loader=None):
-        self.source_loaders = source_loaders
-        self.target_loader = target_loader
-        self.steps_per_epoch = steps_per_epoch
-
-    def __len__(self):
-        return self.steps_per_epoch
-
-    def __iter__(self):
-        source_iters = {d: _infinite(loader) for d, loader in self.source_loaders.items()}
-        target_iter = _infinite(self.target_loader) if self.target_loader is not None else None
-        for _ in range(self.steps_per_epoch):
-            source_batch = {d: next(it) for d, it in source_iters.items()}
-            target_batch = next(target_iter) if target_iter is not None else None
-            yield source_batch, target_batch
-
-
-def steps_per_epoch_for(loaders: dict):
-    """One epoch = enough steps to see the *largest* domain once; smaller
-    domains are cycled (see MultiDomainBatchStream / _infinite)."""
-    return max(len(loader) for loader in loaders.values())
+    def __getitem__(self, idx: int):
+        sample = self.samples[idx]
+        image = Image.open(sample.path).convert("RGB")
+        image = self.transform(image)
+        return image, sample.label, sample.domain

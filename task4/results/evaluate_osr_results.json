@@ -1,0 +1,128 @@
+{
+  "vanilla_score_comparison": {
+    "MSP": {
+      "auroc_near": 0.8121588750000001,
+      "auroc_far": 0.9006666875,
+      "auroc_all": 0.85641278125,
+      "threshold_tau": 0.1776120364665985,
+      "test_acceptance_rate": 0.9508,
+      "near_fpr_at_95tpr": 0.725,
+      "far_fpr_at_95tpr": 0.57375,
+      "all_fpr_at_95tpr": 0.649375
+    },
+    "MLS": {
+      "auroc_near": 0.7950894375000002,
+      "auroc_far": 0.8938365,
+      "auroc_all": 0.84446296875,
+      "threshold_tau": -5.846129894256592,
+      "test_acceptance_rate": 0.9473,
+      "near_fpr_at_95tpr": 0.65375,
+      "far_fpr_at_95tpr": 0.47125,
+      "all_fpr_at_95tpr": 0.5625
+    },
+    "Energy": {
+      "auroc_near": 0.7951789375,
+      "auroc_far": 0.894113375,
+      "auroc_all": 0.8446461562500001,
+      "threshold_tau": -6.015505313873291,
+      "test_acceptance_rate": 0.9487,
+      "near_fpr_at_95tpr": 0.66375,
+      "far_fpr_at_95tpr": 0.46625,
+      "all_fpr_at_95tpr": 0.565
+    },
+    "Mahalanobis": {
+      "auroc_near": 0.7449680625,
+      "auroc_far": 0.91758125,
+      "auroc_all": 0.83127465625,
+      "threshold_tau": 1089.5692998553532,
+      "test_acceptance_rate": 0.9514,
+      "near_fpr_at_95tpr": 0.81625,
+      "far_fpr_at_95tpr": 0.485,
+      "all_fpr_at_95tpr": 0.650625
+    }
+  },
+  "method_comparison_mls": {
+    "vanilla": {
+      "score": "MLS",
+      "csa": 0.9481,
+      "auroc_near": 0.7950894375000002,
+      "auroc_far": 0.8938365,
+      "auroc_all": 0.84446296875,
+      "near_fpr_at_95tpr": 0.65375,
+      "far_fpr_at_95tpr": 0.47125,
+      "all_fpr_at_95tpr": 0.5625
+    },
+    "gcsc": {
+      "score": "MLS",
+      "csa": 0.9528,
+      "auroc_near": 0.8113643125000001,
+      "auroc_far": 0.8953193125,
+      "auroc_all": 0.8533418125000001,
+      "near_fpr_at_95tpr": 0.6375,
+      "far_fpr_at_95tpr": 0.40375,
+      "all_fpr_at_95tpr": 0.520625
+    },
+    "proser": {
+      "score": "MLS",
+      "csa": 0.9406,
+      "auroc_near": 0.7819708750000002,
+      "auroc_far": 0.85365525,
+      "auroc_all": 0.8178130625000001,
+      "near_fpr_at_95tpr": 0.70125,
+      "far_fpr_at_95tpr": 0.57125,
+      "all_fpr_at_95tpr": 0.63625
+    },
+    "proser_placeholder": {
+      "score": "PROSER-placeholder",
+      "csa": 0.9406,
+      "auroc_near": 0.7789368124999999,
+      "auroc_far": 0.8860157500000001,
+      "auroc_all": 0.8324762812499998,
+      "near_fpr_at_95tpr": 0.71125,
+      "far_fpr_at_95tpr": 0.51,
+      "all_fpr_at_95tpr": 0.610625
+    }
+  },
+  "failure_analysis": {
+    "near_unknown_failures": [
+      {
+        "unknown_class": "bus",
+        "predicted_cifar10_class": "truck",
+        "score": -12.370250701904297,
+        "threshold": -5.846129894256592
+      },
+      {
+        "unknown_class": "camel",
+        "predicted_cifar10_class": "deer",
+        "score": -12.071135520935059,
+        "threshold": -5.846129894256592
+      },
+      {
+        "unknown_class": "camel",
+        "predicted_cifar10_class": "deer",
+        "score": -12.026453971862793,
+        "threshold": -5.846129894256592
+      }
+    ],
+    "far_unknown_failures": [
+      {
+        "unknown_class": "keyboard",
+        "predicted_cifar10_class": "truck",
+        "score": -11.393789291381836,
+        "threshold": -5.846129894256592
+      },
+      {
+        "unknown_class": "chair",
+        "predicted_cifar10_class": "airplane",
+        "score": -11.302494049072266,
+        "threshold": -5.846129894256592
+      },
+      {
+        "unknown_class": "bowl",
+        "predicted_cifar10_class": "cat",
+        "score": -11.243471145629883,
+        "threshold": -5.846129894256592
+      }
+    ]
+  }
+}

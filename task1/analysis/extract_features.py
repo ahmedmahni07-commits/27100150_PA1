@@ -6,9 +6,9 @@ from torchvision import models
 import open_clip
 from tqdm import tqdm
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../')))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 from common.seed import set_seed
-from task1.dataset import STL10Subset
+from task1.data.dataset import STL10Subset
 
 def extract_and_save_features(model, dataloader, device, save_path, is_openclip=False):
     model.eval()
@@ -37,7 +37,7 @@ def main():
     set_seed(6304)
     device = torch.device('mps' if torch.backends.mps.is_available() else 'cpu')
     
-    save_dir = os.path.join(os.path.dirname(__file__), 'features')
+    save_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'features')
     os.makedirs(save_dir, exist_ok=True)
 
     # 1. ResNet-50 with IMAGENET1K_V2 (Updated)

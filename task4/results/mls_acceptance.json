@@ -1,0 +1,20 @@
+{
+  "vanilla": {
+    "tau": -5.846129894256592,
+    "test_acceptance": 0.9473,
+    "near_rejection": 0.34625,
+    "far_rejection": 0.52875
+  },
+  "gcsc": {
+    "tau": -6.196467399597168,
+    "test_acceptance": 0.9461,
+    "near_rejection": 0.3625,
+    "far_rejection": 0.59625
+  },
+  "proser": {
+    "tau": -4.383787155151367,
+    "test_acceptance": 0.95,
+    "near_rejection": 0.29875,
+    "far_rejection": 0.42875
+  }
+}

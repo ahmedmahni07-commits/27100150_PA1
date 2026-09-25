@@ -1,5 +1,11 @@
-# DAN configuration
-defaults:
-  - base
+defaults: base.yaml
 method: "dan"
-lambda_mmd: 1.0
+
+dan:
+  lambda_mmd: 1.0
+  kernel_bandwidth_multipliers: [0.5, 1.0, 2.0]
+
+# Controlled design study sweep (pick DAN or DANN, not both):
+controlled_study:
+  enabled: false
+  lambda_mmd_values: [0.1, 1.0, 10.0]

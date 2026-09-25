@@ -1,12 +1,30 @@
-data/
-.venv/
-__pycache__/
-*.pth
-*.pt
+# ---- datasets and generated images (download / regenerate; see README) ----
 task1/data/raw/
-task1/features/
+task1/data/cue_conflicts_raw/
+task1/data/cue_conflicts_stylized/
+task1/data/patch_shuffle/
+task1/data/adain_models/
+task4/data/raw/
 common/pacs/images/
 pacs_dataset.zip
-wandb/
+_claude_stage*.tar
+
+# ---- large artefacts (features, cached outputs, checkpoints) ----
+task1/features/
+task4/cache/*.npz
 checkpoints/
+*.pth
+*.pt
+!task1/data/splits/*.pt
+
+# ---- environment / misc ----
+.venv/
+__pycache__/
+*.pyc
+wandb/
 .DS_Store
+report/*.aux
+report/*.log
+report/*.bbl
+report/*.blg
+report/*.out

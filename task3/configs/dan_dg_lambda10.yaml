@@ -1,0 +1,7 @@
+defaults: base.yaml
+method: "dan_dg"
+run_name: "dan_dg_lambda10"   # keeps checkpoint/results separate from dan_dg.yaml's main run
+
+dan_dg:
+  lambda_dg: 10.0              # <-- the only thing that differs from dan_dg.yaml
+  kernel_bandwidth_multipliers: [0.5, 1.0, 2.0]

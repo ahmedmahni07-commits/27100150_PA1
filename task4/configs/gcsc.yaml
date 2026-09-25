@@ -1,0 +1,5 @@
+defaults: base.yaml
+method: "gcsc"
+# No hyperparameter differences from vanilla.yaml at all -- GCSC's ONLY
+# change is the training transform (RandAugment inserted after crop+flip),
+# selected in task4/train.py by method name, not by anything in this file.

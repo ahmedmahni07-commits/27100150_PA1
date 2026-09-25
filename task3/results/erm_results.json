@@ -1,0 +1,19 @@
+{
+  "note": "ERM baseline is Task 2's source-only checkpoint, reused unchanged (not retrained in Task 3).",
+  "source_checkpoint": "task2/results/checkpoints/source_only_best.pt",
+  "final_per_domain_val": {
+    "photo": {
+      "accuracy": 0.9610778443113772,
+      "macro_f1": 0.9564833436152776
+    },
+    "art_painting": {
+      "accuracy": 0.9292682926829269,
+      "macro_f1": 0.931561640960137
+    },
+    "cartoon": {
+      "accuracy": 0.9424307036247335,
+      "macro_f1": 0.9461941098930581
+    }
+  },
+  "mean_val_macro_f1": 0.9447463648228243
+}

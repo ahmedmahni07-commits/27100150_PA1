@@ -1,58 +1,48 @@
 """
-Domain-separability diagnostic (Task 2 "Common Evaluation and Alignment
-Diagnostic"): freeze the backbone, collect equal numbers of source-validation
-and target features, and see how well a simple linear classifier can still
-tell them apart. 50% = chance = domains indistinguishable; higher = more
-residual domain information survives in the representation.
-
-Run this only on a FIXED checkpoint, after training/model-selection are done
--- it's a diagnostic, not a training-time signal.
+Step 5 diagnostic: can a simple classifier tell source features from target
+features? Freeze the backbone, collect equal numbers of source-val and
+target features, 70/30 split (seed 6304), balanced logistic regression
+(C=1). Held-out accuracy = domain separability score (50% = chance).
 """
+
+from __future__ import annotations
+
 import numpy as np
-import torch
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
 
-SEED = 6304
 
+def compute_domain_separability(
+    source_features: np.ndarray,
+    target_features: np.ndarray,
+    seed: int = 6304,
+    test_size: float = 0.3,
+) -> float:
+    """
+    - subsample the larger of source_features/target_features so counts
+      are equal ("equal numbers of source-validation and target features")
+    - build X = concat(source, target), y = concat(zeros, ones)
+    - 70/30 train/test split, stratified by domain label, seed=seed
+    - LogisticRegression(C=1, class_weight="balanced")
+    - return held-out accuracy
+    """
+    rng = np.random.RandomState(seed)
+    n = min(len(source_features), len(target_features))
 
-@torch.no_grad()
-def extract_features(model, loader, device, has_labels):
-    model.eval()
-    feats = []
-    for batch in loader:
-        images = batch[0] if has_labels else batch
-        images = images.to(device)
-        _, f = model(images)
-        feats.append(f.cpu())
-    return torch.cat(feats, dim=0).numpy()
+    if len(source_features) > n:
+        idx = rng.choice(len(source_features), size=n, replace=False)
+        source_features = source_features[idx]
+    if len(target_features) > n:
+        idx = rng.choice(len(target_features), size=n, replace=False)
+        target_features = target_features[idx]
 
-
-def compute_domain_separability(model, source_val_loaders: dict, target_loader, device):
-    """source_val_loaders: {domain: DataLoader} (labeled, eval transform,
-    e.g. the val_loaders returned by build_dataloaders in train.py).
-    target_loader: DataLoader over the target domain (return_label=False is
-    fine here -- only domain identity, never class label, is used)."""
-    source_feats = np.concatenate(
-        [extract_features(model, loader, device, has_labels=True)
-         for loader in source_val_loaders.values()],
-        axis=0,
-    )
-    target_feats = extract_features(model, target_loader, device, has_labels=False)
-
-    rng = np.random.RandomState(SEED)
-    n = min(len(source_feats), len(target_feats))  # equal numbers of each, per spec
-    source_idx = rng.choice(len(source_feats), size=n, replace=False)
-    target_idx = rng.choice(len(target_feats), size=n, replace=False)
-    source_feats = source_feats[source_idx]
-    target_feats = target_feats[target_idx]
-
-    X = np.concatenate([source_feats, target_feats], axis=0)
-    y = np.concatenate([np.zeros(n), np.ones(n)])  # 0 = source, 1 = target
+    X = np.concatenate([source_features, target_features], axis=0)
+    y = np.concatenate([np.zeros(n, dtype=int), np.ones(n, dtype=int)])
 
     X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.30, random_state=SEED, stratify=y,
+        X, y, test_size=test_size, stratify=y, random_state=seed
     )
-    clf = LogisticRegression(C=1.0, max_iter=2000)
+
+    clf = LogisticRegression(C=1.0, class_weight="balanced", max_iter=1000)
     clf.fit(X_train, y_train)
-    return clf.score(X_test, y_test)  # the domain-separability score
+    return float(clf.score(X_test, y_test))

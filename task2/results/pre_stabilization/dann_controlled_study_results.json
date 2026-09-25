@@ -1,0 +1,95 @@
+{
+  "dann_alpha025": {
+    "grl_max_alpha": 0.25,
+    "per_domain_val": {
+      "photo": {
+        "accuracy": 0.9431137724550899,
+        "macro_f1": 0.9344989765033105
+      },
+      "art_painting": {
+        "accuracy": 0.8731707317073171,
+        "macro_f1": 0.8723302126400817
+      },
+      "cartoon": {
+        "accuracy": 0.8869936034115139,
+        "macro_f1": 0.8874860584439046
+      }
+    },
+    "mean_source_accuracy": 0.9010927025246404,
+    "mean_source_macro_f1": 0.8981050825290989,
+    "target_accuracy": 0.695851361669636,
+    "target_macro_f1": 0.7108718733120828,
+    "domain_separability": 0.9958791208791209,
+    "per_class_target_accuracy": [
+      0.5427461139896373,
+      0.8054054054054054,
+      0.36786188579017265,
+      0.975328947368421,
+      0.7696078431372549,
+      0.9125,
+      0.925
+    ]
+  },
+  "dann_alpha050": {
+    "grl_max_alpha": 0.5,
+    "per_domain_val": {
+      "photo": {
+        "accuracy": 0.8712574850299402,
+        "macro_f1": 0.8496715371219511
+      },
+      "art_painting": {
+        "accuracy": 0.7853658536585366,
+        "macro_f1": 0.7735631686074352
+      },
+      "cartoon": {
+        "accuracy": 0.7931769722814499,
+        "macro_f1": 0.8044771838144472
+      }
+    },
+    "mean_source_accuracy": 0.8166001036566423,
+    "mean_source_macro_f1": 0.8092372965146112,
+    "target_accuracy": 0.19674217358106388,
+    "target_macro_f1": 0.04870124037913406,
+    "domain_separability": 0.9972527472527473,
+    "per_class_target_accuracy": [
+      1.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.00625
+    ]
+  },
+  "dann": {
+    "grl_max_alpha": 1.0,
+    "per_domain_val": {
+      "photo": {
+        "accuracy": 0.09880239520958084,
+        "macro_f1": 0.08074215660290089
+      },
+      "art_painting": {
+        "accuracy": 0.11707317073170732,
+        "macro_f1": 0.09758371740768276
+      },
+      "cartoon": {
+        "accuracy": 0.18336886993603413,
+        "macro_f1": 0.1509108465195582
+      }
+    },
+    "mean_source_accuracy": 0.1330814786257741,
+    "mean_source_macro_f1": 0.10974557351004728,
+    "target_accuracy": 0.24026469839653855,
+    "target_macro_f1": 0.15528905366315324,
+    "domain_separability": 0.9972527472527473,
+    "per_class_target_accuracy": [
+      0.0012953367875647669,
+      0.2851351351351351,
+      0.0,
+      0.71875,
+      0.3174019607843137,
+      0.0,
+      0.225
+    ]
+  }
+}

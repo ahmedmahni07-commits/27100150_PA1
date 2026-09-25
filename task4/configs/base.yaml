@@ -1,0 +1,31 @@
+# Shared defaults for every Task 4 method (vanilla/gcsc; proser/rpl layer
+# their own extras on top). Per spec: SGD lr=0.1 momentum=0.9 wd=5e-4,
+# cosine decay, batch size 128, 100 epochs, seed 6304, crop+flip aug
+# unless a step explicitly changes it (GCSC adds RandAugment; PROSER uses
+# its own fine-tuning recipe).
+
+seed: 6304
+
+data:
+  cifar10_root: "task4/data/raw"
+  cifar100_root: "task4/data/raw"
+  val_fraction: 0.1
+  num_classes: 10
+
+model:
+  backbone: "resnet18_cifar"
+  feature_dim: 512
+
+optim:
+  name: "sgd"
+  lr: 0.1
+  momentum: 0.9
+  weight_decay: 5.0e-4
+  schedule: "cosine"
+  batch_size: 128
+  max_epochs: 100
+
+logging:
+  results_dir: "task4/results"
+  checkpoint_dir: "task4/results/checkpoints"
+  cache_dir: "task4/cache"

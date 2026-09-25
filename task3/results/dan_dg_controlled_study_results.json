@@ -1,0 +1,179 @@
+{
+  "dan_dg_lambda01": {
+    "lambda_dg": 0.1,
+    "per_domain_val": {
+      "photo": {
+        "accuracy": 0.9850299401197605,
+        "macro_f1": 0.982954189446163
+      },
+      "art_painting": {
+        "accuracy": 0.9243902439024391,
+        "macro_f1": 0.9266827162005544
+      },
+      "cartoon": {
+        "accuracy": 0.9680170575692963,
+        "macro_f1": 0.9697596147348
+      }
+    },
+    "mean_source_accuracy": 0.9591457471971653,
+    "mean_source_macro_f1": 0.9597988401271724,
+    "worst_source_accuracy": 0.9243902439024391,
+    "worst_source_macro_f1": 0.9266827162005544,
+    "sketch_accuracy": 0.5734283532705523,
+    "sketch_macro_f1": 0.5864991226564957,
+    "source_domain_separability": {
+      "domains": [
+        "art_painting",
+        "cartoon",
+        "photo"
+      ],
+      "accuracy": 0.6810631229235881,
+      "chance": 0.3333333333333333,
+      "confusion_matrix": [
+        [
+          65,
+          12,
+          23
+        ],
+        [
+          13,
+          68,
+          19
+        ],
+        [
+          21,
+          8,
+          72
+        ]
+      ]
+    },
+    "delta_sharp": 0.2114492803812027,
+    "per_class_sketch_accuracy": [
+      0.20077720207253885,
+      0.9918918918918919,
+      0.6520584329349269,
+      0.7105263157894737,
+      0.36642156862745096,
+      0.85,
+      0.4625
+    ]
+  },
+  "dan_dg": {
+    "lambda_dg": 1.0,
+    "per_domain_val": {
+      "photo": {
+        "accuracy": 0.25748502994011974,
+        "macro_f1": 0.058503401360544216
+      },
+      "art_painting": {
+        "accuracy": 0.21951219512195122,
+        "macro_f1": 0.05142857142857143
+      },
+      "cartoon": {
+        "accuracy": 0.17270788912579957,
+        "macro_f1": 0.04207792207792208
+      }
+    },
+    "mean_source_accuracy": 0.21656837139595686,
+    "mean_source_macro_f1": 0.05066996495567924,
+    "worst_source_accuracy": 0.17270788912579957,
+    "worst_source_macro_f1": 0.04207792207792208,
+    "sketch_accuracy": 0.04072283023670145,
+    "sketch_macro_f1": 0.011179820424134438,
+    "source_domain_separability": {
+      "domains": [
+        "art_painting",
+        "cartoon",
+        "photo"
+      ],
+      "accuracy": 0.3787375415282392,
+      "chance": 0.3333333333333333,
+      "confusion_matrix": [
+        [
+          91,
+          9,
+          0
+        ],
+        [
+          77,
+          23,
+          0
+        ],
+        [
+          86,
+          15,
+          0
+        ]
+      ]
+    },
+    "delta_sharp": 0.10943710803985596,
+    "per_class_sketch_accuracy": [
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      1.0
+    ]
+  },
+  "dan_dg_lambda10": {
+    "lambda_dg": 10.0,
+    "per_domain_val": {
+      "photo": {
+        "accuracy": 0.25748502994011974,
+        "macro_f1": 0.058503401360544216
+      },
+      "art_painting": {
+        "accuracy": 0.21951219512195122,
+        "macro_f1": 0.05142857142857143
+      },
+      "cartoon": {
+        "accuracy": 0.17270788912579957,
+        "macro_f1": 0.04207792207792208
+      }
+    },
+    "mean_source_accuracy": 0.21656837139595686,
+    "mean_source_macro_f1": 0.05066996495567924,
+    "worst_source_accuracy": 0.17270788912579957,
+    "worst_source_macro_f1": 0.04207792207792208,
+    "sketch_accuracy": 0.04072283023670145,
+    "sketch_macro_f1": 0.011179820424134438,
+    "source_domain_separability": {
+      "domains": [
+        "art_painting",
+        "cartoon",
+        "photo"
+      ],
+      "accuracy": 0.3687707641196013,
+      "chance": 0.3333333333333333,
+      "confusion_matrix": [
+        [
+          29,
+          36,
+          35
+        ],
+        [
+          26,
+          45,
+          29
+        ],
+        [
+          27,
+          37,
+          37
+        ]
+      ]
+    },
+    "delta_sharp": 0.030988097190856934,
+    "per_class_sketch_accuracy": [
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      1.0
+    ]
+  }
+}

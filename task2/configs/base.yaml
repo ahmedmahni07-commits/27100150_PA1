@@ -1,9 +1,37 @@
-# Base configuration for Task 2
+# Shared defaults for every Task 2 method. Method-specific configs
+# (source_only.yaml, dan.yaml, dann.yaml, cdan.yaml) extend this.
+
 seed: 6304
-batch_size_source: 8  # per source domain (Photo, Art, Cartoon) -> total 24
-batch_size_target: 24 # Sketch domain
-lr: 0.0001
-weight_decay: 0.0001
-max_epochs: 30
-patience: 5
-image_size: 224
+
+data:
+  pacs_root: "common/pacs/images"          # TODO: point at your actual PACS location
+  source_domains: ["photo", "art_painting", "cartoon"]
+  target_domain: "sketch"
+  resize: 256
+  crop: 224
+  val_fraction: 0.2
+
+model:
+  backbone: "resnet18"
+  weights: "IMAGENET1K_V1"
+  feature_dim: 512
+  num_classes: 7
+  freeze_bn_running_stats: true    # BN gamma/beta stay trainable
+
+optim:
+  name: "adamw"
+  lr: 1.0e-4
+  weight_decay: 1.0e-4
+  max_epochs: 30
+  early_stopping_patience: 5       # on mean source-val macro-F1
+  grad_clip_norm: null              # DEVIATION hook (see task2/DEVIATIONS.md); null = no clipping.
+                                     # Left null here so source_only/DAN (already stable) are untouched;
+                                     # set explicitly in dann*.yaml / cdan.yaml only.
+
+batch:
+  source_per_domain: 8             # -> 24 total source
+  target_per_batch: 24             # equal total source/target = 48/step
+
+logging:
+  results_dir: "task2/results"
+  checkpoint_dir: "task2/results/checkpoints"

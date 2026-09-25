@@ -1,0 +1,45 @@
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+/Users/ahmedwaqas/Desktop/27100150_PA1/atml-pa1/.venv/lib/python3.9/site-packages/open_clip/factory.py:450: UserWarning: QuickGELU mismatch between final model config (quick_gelu=False) and pretrained tag 'openai' (quick_gelu=True).
+  warnings.warn(
+device: mps
+test subset: 500 images, per class [50, 50, 50, 50, 50, 50, 50, 50, 50, 50]
+head resnet50: {'best_val_acc': 0.9729999899864197, 'epochs_run': 35}
+head vit_b_16: {'best_val_acc': 0.9850000143051147, 'epochs_run': 22}
+head openclip: {'best_val_acc': 0.984000027179718, 'epochs_run': 9}
+cue conflicts: kept 325, rejected 0
+features done: resnet50
+features done: vit_b_16
+features done: openclip
+wrote task1/results/task1_results.json
+
+=== CLEAN ===
+ResNet-50          acc=98.400 macro_f1=0.984 mean_max_conf=0.953
+ViT-B/16           acc=98.000 macro_f1=0.980 mean_max_conf=0.958
+CLIP (head)        acc=97.400 macro_f1=0.974 mean_max_conf=0.141
+CLIP (zero-shot)   acc=94.800 macro_f1=0.946 mean_max_conf=0.934
+
+=== COLOUR / SHUFFLE (acc, dAcc, consistency) ===
+ResNet-50          gray 96.6 -1.8 96.2 | hue 94.6 -3.8 95.4 | shuf 88.8 -9.6 89.6
+ViT-B/16           gray 96.2 -1.8 95.8 | hue 96.0 -2.0 96.6 | shuf 92.0 -6.0 91.6
+CLIP (head)        gray 94.6 -2.8 95.2 | hue 94.6 -2.8 94.0 | shuf 76.8 -20.6 77.0
+CLIP (zero-shot)   gray 93.0 -1.8 94.8 | hue 93.2 -1.6 94.6 | shuf 80.4 -14.4 80.2
+
+=== CUE CONFLICT ===
+ResNet-50          S=129 T=58 O=138 bias=69.0 cov=57.5
+ViT-B/16           S=191 T=29 O=105 bias=86.8 cov=67.7
+CLIP (head)        S=220 T=24 O=81 bias=90.2 cov=75.1
+CLIP (zero-shot)   S=228 T=17 O=80 bias=93.1 cov=75.4
+
+=== TRANSLATION (acc/cons) ===
+ResNet-50          d0:98.4/100.0 d8:98.4/98.7 d16:97.6/98.4 d32:97.5/97.8
+ViT-B/16           d0:98.0/100.0 d8:98.0/98.7 d16:98.1/99.3 d32:97.8/98.7
+CLIP (head)        d0:97.4/100.0 d8:96.9/97.0 d16:96.0/96.2 d32:95.3/96.8
+CLIP (zero-shot)   d0:94.8/100.0 d8:93.8/96.3 d16:93.5/95.7 d32:92.4/95.6
+
+=== REPRESENTATION I_T ===
+ResNet-50          grayscale=0.808 hue_rot=0.755 translate_8=0.967 translate_16=0.951 translate_32=0.929 patch_shuffle=0.694 cue_conflict=0.313
+ViT-B/16           grayscale=0.741 hue_rot=0.712 translate_8=0.945 translate_16=0.975 translate_32=0.943 patch_shuffle=0.635 cue_conflict=0.322
+CLIP (head)        grayscale=0.889 hue_rot=0.884 translate_8=0.977 translate_16=0.963 translate_32=0.965 patch_shuffle=0.755 cue_conflict=0.711
+
+Done. Figures in task1/results/

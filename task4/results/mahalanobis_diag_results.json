@@ -1,0 +1,29 @@
+{
+  "vanilla": {
+    "auroc_near": 0.7983016875,
+    "auroc_far": 0.918477375,
+    "auroc_all": 0.85838953125,
+    "threshold_tau": 3092.887713288039,
+    "test_acceptance_rate": 0.9529,
+    "near_fpr_at_95tpr": 0.7275,
+    "far_fpr_at_95tpr": 0.505
+  },
+  "gcsc": {
+    "auroc_near": 0.7642886875,
+    "auroc_far": 0.91490425,
+    "auroc_all": 0.83959646875,
+    "threshold_tau": 1904.022068525695,
+    "test_acceptance_rate": 0.943,
+    "near_fpr_at_95tpr": 0.7675,
+    "far_fpr_at_95tpr": 0.47875
+  },
+  "proser": {
+    "auroc_near": 0.7802831875,
+    "auroc_far": 0.90764425,
+    "auroc_all": 0.84396371875,
+    "threshold_tau": 2526.869500645607,
+    "test_acceptance_rate": 0.9428,
+    "near_fpr_at_95tpr": 0.73375,
+    "far_fpr_at_95tpr": 0.52
+  }
+}

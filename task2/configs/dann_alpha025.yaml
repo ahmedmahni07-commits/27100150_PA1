@@ -1,0 +1,19 @@
+defaults: base.yaml
+method: "dann"
+run_name: "dann_alpha025"   # keeps checkpoint/results separate from dann.yaml's main run
+
+dann:
+  discriminator_hidden_dim: 256
+  discriminator_dropout: 0.5
+  domain_loss_weight: 1.0
+  grl_schedule: "ganin"
+  grl_max_alpha: 0.25       # <-- the only thing that differs from dann.yaml
+
+# DEVIATION from manual (documented in task2/DEVIATIONS.md): unclipped
+# adversarial training diverged (train_domain_loss > 1e8 within ~1 epoch;
+# domain separability stayed ~99.7% throughout, i.e. no real alignment was
+# achieved despite the collapse). Adding gradient-norm clipping as a training
+# stabilizer; no other specified hyperparameter (lr, wd, domain_loss_weight,
+# batch composition, GRL schedule shape) is changed.
+optim:
+  grad_clip_norm: 5.0

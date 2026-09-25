@@ -1,0 +1,35 @@
+# Shared defaults for every Task 3 method. Mirrors Task 2's base.yaml
+# exactly per spec ("exactly the same ... optimizer settings, epoch budget,
+# early stopping rule, and seed 6304"), minus anything target-related --
+# Task 3 training NEVER loads Sketch.
+
+seed: 6304
+
+data:
+  pacs_root: "common/pacs/images"
+  source_domains: ["photo", "art_painting", "cartoon"]
+  target_domain: "sketch"   # used ONLY by evaluate_sketch.py, never by train.py
+  resize: 256
+  crop: 224
+  val_fraction: 0.2
+
+model:
+  backbone: "resnet18"
+  weights: "IMAGENET1K_V1"
+  feature_dim: 512
+  num_classes: 7
+  freeze_bn_running_stats: true
+
+optim:
+  name: "adamw"
+  lr: 1.0e-4
+  weight_decay: 1.0e-4
+  max_epochs: 30
+  early_stopping_patience: 5   # on mean source-val macro-F1
+
+batch:
+  source_per_domain: 8         # -> 24 total per batch; NO target batch in Task 3
+
+logging:
+  results_dir: "task3/results"
+  checkpoint_dir: "task3/results/checkpoints"

@@ -1,77 +1,132 @@
 """
-DAN -- Maximum Mean Discrepancy (MMD) marginal alignment.
+Step 2: DAN — MMD alignment on the 512-d feature immediately before the
+classifier head.
 
-    L_DAN = L_cls + lambda_mmd * ||E_s[phi(F(x_s))] - E_t[phi(F(x_t))]||^2_H
-
-MMD is estimated with the kernel trick (phi is never built explicitly) using
-a sum of three RBF kernels, bandwidths = {0.5, 1, 2} x the median pairwise
-squared feature distance in the current combined (source+target) batch.
-This only pulls the *marginal* feature distributions together -- it never
-looks at predicted class, which is exactly what distinguishes DAN from CDAN.
+L_DAN = L_cls(source) + lambda_mmd * MMD^2(features_source, features_target)
 """
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+
 import torch
 import torch.nn as nn
 
-from task2.models.backbone import get_resnet18_backbone
-from task2.models.classifier_head import ClassifierHead
-
-KERNEL_MULS = (0.5, 1.0, 2.0)
-
-
-def _pairwise_sq_dists(x):
-    """n x n squared-Euclidean-distance matrix via ||a-b||^2 = ||a||^2+||b||^2-2a.b,
-    avoiding an explicit n x n x d expansion."""
-    sq_norms = (x ** 2).sum(dim=1, keepdim=True)
-    dists = sq_norms + sq_norms.t() - 2.0 * (x @ x.t())
-    return dists.clamp(min=0.0)  # guards tiny negative values from floating-point error
+from common.mmd import mmd2
+from task2.models.backbone import ResNet18Backbone
+from task2.models.classifier_head import LinearClassifierHead
 
 
-def _median_bandwidth(dists):
-    n = dists.size(0)
-    off_diag = dists[~torch.eye(n, dtype=torch.bool, device=dists.device)]
-    return off_diag.median()
+@dataclass
+class DANModel:
+    backbone: ResNet18Backbone
+    head: LinearClassifierHead
+    lambda_mmd: float
+    kernel_bandwidth_multipliers: tuple[float, ...]
+
+    def parameters(self):
+        return list(self.backbone.parameters()) + list(self.head.parameters())
+
+    def train_mode(self) -> None:
+        self.backbone.train()
+        self.head.train()
+        self.backbone.freeze_batchnorm_running_stats()
+
+    def eval_mode(self) -> None:
+        self.backbone.eval()
+        self.head.eval()
+
+    def to(self, device: torch.device) -> "DANModel":
+        self.backbone.to(device)
+        self.head.to(device)
+        return self
 
 
-def mmd2(source_feats, target_feats):
-    """Biased multi-kernel MMD^2 estimate between two feature batches."""
-    n_s = source_feats.size(0)
-    combined = torch.cat([source_feats, target_feats], dim=0)
-    dists = _pairwise_sq_dists(combined)
-    # Bandwidth is a statistic of this batch's geometry, not a learned
-    # parameter -- detach so no gradient flows through the median itself.
-    bandwidth = _median_bandwidth(dists).detach().clamp(min=1e-6)
+def build_model(cfg: dict, device: torch.device) -> DANModel:
+    """
+    Constructs backbone -> head in the same order as source_only.build_model,
+    from the same post-set_all_seeds RNG state, so the classifier head's
+    random init matches source_only's exactly. DAN adds no extra learnable
+    modules (no discriminator), which makes it the simplest of the three
+    adaptation methods to keep aligned with the shared baseline.
+    """
+    backbone = ResNet18Backbone(pretrained=True)
+    head = LinearClassifierHead(
+        feature_dim=backbone.feature_dim,
+        num_classes=cfg["model"]["num_classes"],
+    )
+    model = DANModel(
+        backbone=backbone,
+        head=head,
+        lambda_mmd=cfg["dan"]["lambda_mmd"],
+        kernel_bandwidth_multipliers=tuple(cfg["dan"]["kernel_bandwidth_multipliers"]),
+    )
+    model.to(device)
+    return model
 
-    kernel = sum(torch.exp(-dists / (bandwidth * mul)) for mul in KERNEL_MULS)
 
-    k_ss = kernel[:n_s, :n_s]
-    k_tt = kernel[n_s:, n_s:]
-    k_st = kernel[:n_s, n_s:]
-    return k_ss.mean() - 2.0 * k_st.mean() + k_tt.mean()
+def training_step(
+    model: DANModel,
+    batch: dict,
+    criterion: nn.CrossEntropyLoss,
+    device: torch.device,
+    progress_p: float = 0.0,  # unused here; present so train.py's call is uniform across methods
+) -> dict:
+    """
+    `batch` is what common.pacs_protocol.domain_balanced_batches yields:
+    {"source_images", "source_labels", "source_domain_ids", "target_images", ...}
+    Target labels are never read here — domain_balanced_batches doesn't even
+    hand them to this function, only the images.
+
+    - forward source_images -> features_s -> logits -> cls_loss (uses source_labels)
+    - forward target_images -> features_t (unlabeled)
+    - mmd_loss = mmd2(features_s, features_t, model.kernel_bandwidth_multipliers)
+    - total = cls_loss + model.lambda_mmd * mmd_loss
+
+    Calls loss.backward() but not optimizer.zero_grad()/step() — same
+    contract as source_only.training_step, so train.py's loop body is
+    identical regardless of which method is active.
+    """
+    source_images = batch["source_images"].to(device, non_blocking=True)
+    source_labels = batch["source_labels"].to(device, non_blocking=True)
+    target_images = batch["target_images"].to(device, non_blocking=True)
+
+    features_s = model.backbone(source_images)
+    features_t = model.backbone(target_images)
+
+    logits_s = model.head(features_s)
+    cls_loss = criterion(logits_s, source_labels)
+
+    mmd_loss = mmd2(features_s, features_t, model.kernel_bandwidth_multipliers)
+
+    total_loss = cls_loss + model.lambda_mmd * mmd_loss
+    total_loss.backward()
+
+    with torch.no_grad():
+        preds = logits_s.argmax(dim=1)
+        batch_acc = (preds == source_labels).float().mean().item()
+
+    return {
+        "loss": total_loss.item(),
+        "cls_loss": cls_loss.item(),
+        "mmd_loss": mmd_loss.item(),
+        "batch_acc": batch_acc,
+    }
 
 
-class DAN(nn.Module):
-    def __init__(self, num_classes: int = 7, lambda_mmd: float = 1.0, **_ignored):
-        super().__init__()
-        self.backbone, feature_dim = get_resnet18_backbone()
-        self.classifier = ClassifierHead(feature_dim, num_classes)
-        self.criterion = nn.CrossEntropyLoss()
-        self.lambda_mmd = lambda_mmd
+def save_checkpoint(model: DANModel, path: str) -> None:
+    """
+    Same {"backbone": ..., "head": ...} format as source_only — DAN adds no
+    extra learnable modules, so no extra checkpoint keys are needed.
+    """
+    torch.save(
+        {"backbone": model.backbone.state_dict(), "head": model.head.state_dict()},
+        path,
+    )
 
-    def forward(self, x):
-        features = self.backbone(x)
-        logits = self.classifier(features)
-        return logits, features
 
-    def compute_loss(self, src_images, src_labels, tgt_images, progress=0.0):
-        src_logits, src_feats = self(src_images)
-        _, tgt_feats = self(tgt_images)
-
-        clf_loss = self.criterion(src_logits, src_labels)
-        mmd_loss = mmd2(src_feats, tgt_feats)
-        loss = clf_loss + self.lambda_mmd * mmd_loss
-
-        return loss, {
-            "clf_loss": clf_loss.item(),
-            "mmd_loss": mmd_loss.item(),
-            "total_loss": loss.item(),
-        }
+def load_checkpoint(model: DANModel, path: str, device: torch.device) -> DANModel:
+    state = torch.load(path, map_location=device)
+    model.backbone.load_state_dict(state["backbone"])
+    model.head.load_state_dict(state["head"])
+    return model

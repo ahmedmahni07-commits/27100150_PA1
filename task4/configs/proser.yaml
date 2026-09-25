@@ -1,0 +1,21 @@
+defaults: base.yaml
+method: "proser"
+
+# PROSER fine-tunes with its OWN recipe (lr, epochs) -- everything below
+# fully overrides base.yaml's optim block, per spec's Step 4 paragraph.
+optim:
+  name: "sgd"
+  lr: 1.0e-3
+  momentum: 0.9
+  weight_decay: 5.0e-4
+  schedule: "cosine"
+  batch_size: 128
+  max_epochs: 50
+
+proser:
+  vanilla_checkpoint: "task4/results/checkpoints/vanilla_best.pt"
+  num_dummy_classifiers: 5
+  beta: 1.0
+  gamma: 0.1
+  mixup_beta_a: 2.0
+  mixup_beta_b: 2.0

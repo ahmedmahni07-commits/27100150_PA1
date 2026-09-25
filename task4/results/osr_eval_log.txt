@@ -1,0 +1,24 @@
+Loading cached outputs...
+Table 1: MSP/MLS/Energy/Mahalanobis on frozen Vanilla model...
+Table 2: Vanilla/GCSC/PROSER comparison (MLS + PROSER placeholder)...
+Score-distribution figure...
+Failure analysis (vanilla MLS threshold)...
+
+====================================================================================================
+Table 1 -- Vanilla model, all four scores:
+Score           AUROC-near  AUROC-far  AUROC-all  TestAccept  NearFPR@95  FarFPR@95
+MSP                  0.812      0.901      0.856       95.1%       72.5%      57.4%
+MLS                  0.795      0.894      0.844       94.7%       65.4%      47.1%
+Energy               0.795      0.894      0.845       94.9%       66.4%      46.6%
+Mahalanobis          0.745      0.918      0.831       95.1%       81.6%      48.5%
+----------------------------------------------------------------------------------------------------
+Table 2 -- Vanilla/GCSC/PROSER comparison:
+Method              Score                    CSA  AUROC-near  AUROC-far  AUROC-all
+vanilla             MLS                    94.8%       0.795      0.894      0.844
+gcsc                MLS                    95.3%       0.811      0.895      0.853
+proser              MLS                    94.1%       0.782      0.854      0.818
+proser_placeholder  PROSER-placeholder     94.1%       0.779      0.886      0.832
+====================================================================================================
+
+Full results written to task4/results/evaluate_osr_results.json
+Score-distribution figure written to task4/results/score_distributions.png

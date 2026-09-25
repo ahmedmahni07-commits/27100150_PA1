@@ -1,64 +1,66 @@
 """
-Task 2 "Common Evaluation" per-class target analysis. Target LABELS are used
-ONLY here -- after every checkpoint, method, and threshold has already been
-fixed -- never for training, model selection, or hyperparameter choice.
+Step 5: per-class target accuracy, and which classes improve/degrade most
+relative to Source-only. Target labels are used ONLY here, at final
+analysis time -- never during training or checkpoint selection.
 """
+
+from __future__ import annotations
+
 import numpy as np
-import torch
-from sklearn.metrics import confusion_matrix
-
-from common.pacs_protocol import CLASSES
-
-NUM_CLASSES = len(CLASSES)
 
 
-@torch.no_grad()
-def predict_all(model, loader, device):
-    """Runs `model` on a labeled loader; returns (y_true, y_pred) as numpy arrays."""
-    model.eval()
-    y_true, y_pred = [], []
-    for images, labels in loader:
-        images = images.to(device)
-        logits, _ = model(images)
-        y_pred.append(logits.argmax(dim=1).cpu().numpy())
-        y_true.append(labels.numpy())
-    return np.concatenate(y_true), np.concatenate(y_pred)
-
-
-def per_class_accuracy(y_true, y_pred, num_classes=NUM_CLASSES):
-    """Accuracy restricted to each true class, length-`num_classes` array."""
-    accs = np.zeros(num_classes)
+def per_class_accuracy(y_true: np.ndarray, y_pred: np.ndarray, num_classes: int = 7) -> np.ndarray:
+    """Length-num_classes array; NaN for a class absent from y_true."""
+    y_true = np.asarray(y_true)
+    y_pred = np.asarray(y_pred)
+    accs = np.full(num_classes, np.nan)
     for c in range(num_classes):
         mask = y_true == c
-        accs[c] = (y_pred[mask] == c).mean() if mask.sum() > 0 else np.nan
+        if mask.sum() > 0:
+            accs[c] = (y_pred[mask] == c).mean()
     return accs
 
 
-def per_class_deltas(baseline_true, baseline_pred, method_true, method_pred,
-                      num_classes=NUM_CLASSES):
-    """Per-class accuracy change of `method` relative to `baseline` (e.g.
-    Source-only) on the target set. Both should be evaluated on the full
-    target test set (order need not match, only the label set)."""
-    base_acc = per_class_accuracy(baseline_true, baseline_pred, num_classes)
-    method_acc = per_class_accuracy(method_true, method_pred, num_classes)
-    delta = method_acc - base_acc
-    order = np.argsort(delta)  # most-degraded first ... most-improved last
+def compare_to_baseline(
+    per_class_acc_method: np.ndarray, per_class_acc_source_only: np.ndarray, top_k: int = 3
+) -> dict:
+    """
+    Per-class deltas (method - source_only) plus the top-k most improved
+    and most degraded classes by index, for "identify the classes with the
+    largest improvement and degradation relative to Source-only".
+    """
+    deltas = per_class_acc_method - per_class_acc_source_only
+    valid = ~np.isnan(deltas)
+
+    # Most improved: largest positive delta first. NaNs sink to the bottom
+    # before reversing by treating them as -inf.
+    improve_order = np.argsort(np.where(valid, deltas, -np.inf))[::-1]
+    most_improved = improve_order[:top_k].tolist()
+
+    # Most degraded: most negative delta first. NaNs pushed to the end by
+    # treating them as +inf.
+    degrade_order = np.argsort(np.where(valid, deltas, np.inf))
+    most_degraded = degrade_order[:top_k].tolist()
+
     return {
-        "per_class_accuracy_baseline": {CLASSES[c]: float(base_acc[c]) for c in range(num_classes)},
-        "per_class_accuracy_method": {CLASSES[c]: float(method_acc[c]) for c in range(num_classes)},
-        "delta": {CLASSES[c]: float(delta[c]) for c in range(num_classes)},
-        "most_improved": [CLASSES[c] for c in order[::-1][:3]],
-        "most_degraded": [CLASSES[c] for c in order[:3]],
+        "per_class_delta": deltas.tolist(),
+        "most_improved_classes": most_improved,
+        "most_degraded_classes": most_degraded,
     }
 
 
-def dominant_confusions(y_true, y_pred, num_classes=NUM_CLASSES, top_k=3):
-    """For each true class, the top_k most frequent *wrong* predicted classes."""
-    cm = confusion_matrix(y_true, y_pred, labels=list(range(num_classes)))
-    result = {}
-    for c in range(num_classes):
-        row = cm[c].copy()
-        row[c] = 0  # exclude the correct-prediction count itself
-        top = np.argsort(row)[::-1][:top_k]
-        result[CLASSES[c]] = [(CLASSES[p], int(row[p])) for p in top if row[p] > 0]
-    return result
+def confusion_matrix_for_class(
+    y_true: np.ndarray, y_pred: np.ndarray, class_idx: int, num_classes: int = 7
+) -> np.ndarray:
+    """
+    For inspecting a flagged class's dominant confusions: returns a
+    length-num_classes row -- what predicted label true-class `class_idx`
+    examples actually received.
+    """
+    y_true = np.asarray(y_true)
+    y_pred = np.asarray(y_pred)
+    mask = y_true == class_idx
+    row = np.zeros(num_classes, dtype=int)
+    for pred in y_pred[mask]:
+        row[pred] += 1
+    return row

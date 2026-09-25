@@ -1,0 +1,10 @@
+defaults: base.yaml
+method: "dan_dg"
+
+dan_dg:
+  lambda_dg: 1.0
+  kernel_bandwidth_multipliers: [0.5, 1.0, 2.0]  # same MMD construction as Task 2's DAN
+
+controlled_study:
+  enabled: false
+  lambda_dg_values: [0.1, 1.0, 10.0]

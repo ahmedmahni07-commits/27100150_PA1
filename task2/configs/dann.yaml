@@ -1,5 +1,22 @@
-# DANN configuration
-defaults:
-  - base
+defaults: base.yaml
 method: "dann"
-lambda_dom: 1.0
+
+dann:
+  discriminator_hidden_dim: 256
+  discriminator_dropout: 0.5
+  domain_loss_weight: 1.0
+  grl_schedule: "ganin"           # alpha(p) = 2 / (1 + exp(-10p)) - 1
+  grl_max_alpha: 1.0              # sweep target for the controlled study
+
+# DEVIATION from manual (documented in task2/DEVIATIONS.md): unclipped
+# adversarial training diverged (train_domain_loss > 1e8 within ~1 epoch;
+# domain separability stayed ~99.7% throughout, i.e. no real alignment was
+# achieved despite the collapse). Adding gradient-norm clipping as a training
+# stabilizer; no other specified hyperparameter (lr, wd, domain_loss_weight,
+# batch composition, GRL schedule shape) is changed.
+optim:
+  grad_clip_norm: 5.0
+
+controlled_study:
+  enabled: false
+  grl_max_alpha_values: [0.25, 0.5, 1.0]

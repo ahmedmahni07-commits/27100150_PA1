@@ -1,0 +1,6 @@
+defaults: base.yaml
+method: "erm"
+
+erm:
+  # Reused unchanged from Task 2 -- never retrained here.
+  source_checkpoint: "task2/results/checkpoints/source_only_best.pt"

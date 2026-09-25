@@ -1,0 +1,224 @@
+{
+  "erm": {
+    "per_domain_val": {
+      "photo": {
+        "accuracy": 0.9610778443113772,
+        "macro_f1": 0.9564833436152776
+      },
+      "art_painting": {
+        "accuracy": 0.9292682926829269,
+        "macro_f1": 0.931561640960137
+      },
+      "cartoon": {
+        "accuracy": 0.9424307036247335,
+        "macro_f1": 0.9461941098930581
+      }
+    },
+    "mean_source_accuracy": 0.9442589468730125,
+    "mean_source_macro_f1": 0.9447463648228243,
+    "worst_source_accuracy": 0.9292682926829269,
+    "worst_source_macro_f1": 0.931561640960137,
+    "sketch_accuracy": 0.7101043522524816,
+    "sketch_macro_f1": 0.7127201290329305,
+    "source_domain_separability": {
+      "domains": [
+        "art_painting",
+        "cartoon",
+        "photo"
+      ],
+      "accuracy": 0.8903654485049833,
+      "chance": 0.3333333333333333,
+      "confusion_matrix": [
+        [
+          85,
+          2,
+          13
+        ],
+        [
+          0,
+          97,
+          3
+        ],
+        [
+          12,
+          3,
+          86
+        ]
+      ]
+    },
+    "delta_sharp": 0.3515508770942688,
+    "per_class_sketch_accuracy": [
+      0.24481865284974094,
+      0.8135135135135135,
+      0.6254980079681275,
+      0.9358552631578947,
+      0.9105392156862745,
+      0.875,
+      0.9125
+    ],
+    "delta_sketch_accuracy_vs_erm": 0.0,
+    "delta_sketch_macro_f1_vs_erm": 0.0
+  },
+  "dan_dg": {
+    "per_domain_val": {
+      "photo": {
+        "accuracy": 0.25748502994011974,
+        "macro_f1": 0.058503401360544216
+      },
+      "art_painting": {
+        "accuracy": 0.21951219512195122,
+        "macro_f1": 0.05142857142857143
+      },
+      "cartoon": {
+        "accuracy": 0.17270788912579957,
+        "macro_f1": 0.04207792207792208
+      }
+    },
+    "mean_source_accuracy": 0.21656837139595686,
+    "mean_source_macro_f1": 0.05066996495567924,
+    "worst_source_accuracy": 0.17270788912579957,
+    "worst_source_macro_f1": 0.04207792207792208,
+    "sketch_accuracy": 0.04072283023670145,
+    "sketch_macro_f1": 0.011179820424134438,
+    "source_domain_separability": {
+      "domains": [
+        "art_painting",
+        "cartoon",
+        "photo"
+      ],
+      "accuracy": 0.3787375415282392,
+      "chance": 0.3333333333333333,
+      "confusion_matrix": [
+        [
+          91,
+          9,
+          0
+        ],
+        [
+          77,
+          23,
+          0
+        ],
+        [
+          86,
+          15,
+          0
+        ]
+      ]
+    },
+    "delta_sharp": 0.10943710803985596,
+    "per_class_sketch_accuracy": [
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      1.0
+    ],
+    "delta_sketch_accuracy_vs_erm": -0.6693815220157802,
+    "delta_sketch_macro_f1_vs_erm": -0.701540308608796,
+    "per_class_comparison_vs_erm": {
+      "per_class_delta": [
+        -0.24481865284974094,
+        -0.8135135135135135,
+        -0.6254980079681275,
+        -0.9358552631578947,
+        -0.9105392156862745,
+        -0.875,
+        0.08750000000000002
+      ],
+      "most_improved_classes": [
+        6,
+        0,
+        2
+      ],
+      "most_degraded_classes": [
+        3,
+        4,
+        5
+      ]
+    }
+  },
+  "sam": {
+    "per_domain_val": {
+      "photo": {
+        "accuracy": 0.9820359281437125,
+        "macro_f1": 0.9783209737899113
+      },
+      "art_painting": {
+        "accuracy": 0.9390243902439024,
+        "macro_f1": 0.9413855692143712
+      },
+      "cartoon": {
+        "accuracy": 0.9530916844349681,
+        "macro_f1": 0.9591303090797529
+      }
+    },
+    "mean_source_accuracy": 0.9580506676075277,
+    "mean_source_macro_f1": 0.9596122840280118,
+    "worst_source_accuracy": 0.9390243902439024,
+    "worst_source_macro_f1": 0.9413855692143712,
+    "sketch_accuracy": 0.6637821328582336,
+    "sketch_macro_f1": 0.6921939620983694,
+    "source_domain_separability": {
+      "domains": [
+        "art_painting",
+        "cartoon",
+        "photo"
+      ],
+      "accuracy": 0.8538205980066446,
+      "chance": 0.3333333333333333,
+      "confusion_matrix": [
+        [
+          78,
+          5,
+          17
+        ],
+        [
+          1,
+          94,
+          5
+        ],
+        [
+          14,
+          2,
+          85
+        ]
+      ]
+    },
+    "delta_sharp": 0.13728933036327362,
+    "per_class_sketch_accuracy": [
+      0.5181347150259067,
+      0.9459459459459459,
+      0.6640106241699867,
+      0.71875,
+      0.48284313725490197,
+      0.7125,
+      0.75
+    ],
+    "delta_sketch_accuracy_vs_erm": -0.046322219394247965,
+    "delta_sketch_macro_f1_vs_erm": -0.020526166934561108,
+    "per_class_comparison_vs_erm": {
+      "per_class_delta": [
+        0.2733160621761658,
+        0.1324324324324324,
+        0.038512616201859196,
+        -0.2171052631578947,
+        -0.42769607843137253,
+        -0.16249999999999998,
+        -0.16249999999999998
+      ],
+      "most_improved_classes": [
+        0,
+        1,
+        2
+      ],
+      "most_degraded_classes": [
+        4,
+        3,
+        5
+      ]
+    }
+  }
+}

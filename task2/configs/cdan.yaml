@@ -1,5 +1,22 @@
-# CDAN configuration
-defaults:
-  - base
+defaults: base.yaml
 method: "cdan"
-lambda_dom: 1.0
+
+cdan:
+  discriminator_hidden_dim: 256   # same width as DANN
+  discriminator_dropout: 0.5      # same as DANN
+  domain_loss_weight: 1.0         # same as DANN
+  grl_schedule: "ganin"
+  grl_max_alpha: 1.0
+  use_entropy_conditioning: false # required: off
+  detach_features: false          # required: off
+  detach_probs: false             # required: off
+
+# DEVIATION from manual (documented in task2/DEVIATIONS.md): unclipped
+# adversarial training diverged (train_domain_loss > 1e8 within ~1 epoch for
+# DANN with this same discriminator/schedule/weight; domain separability
+# stayed ~99% throughout, i.e. no real alignment was achieved despite the
+# collapse). Adding gradient-norm clipping as a training stabilizer; no other
+# specified hyperparameter (lr, wd, domain_loss_weight, batch composition,
+# GRL schedule shape) is changed.
+optim:
+  grad_clip_norm: 5.0
