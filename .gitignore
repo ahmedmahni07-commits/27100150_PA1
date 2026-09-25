@@ -28,3 +28,4 @@ report/*.log
 report/*.bbl
 report/*.blg
 report/*.out
+report/
